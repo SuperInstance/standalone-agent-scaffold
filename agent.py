@@ -87,18 +87,19 @@ class AgentState(enum.Enum):
     PAUSED = "PAUSED"
     ARCHIVED = "ARCHIVED"
 
-    # --- transition adjacency ---------------------------------------------------
-    _TRANSITIONS: dict["AgentState", set["AgentState"]] = {
-        AgentState.BOOT:       {AgentState.ONBOARDING, AgentState.ARCHIVED},
-        AgentState.ONBOARDING: {AgentState.ACTIVE, AgentState.ARCHIVED},
-        AgentState.ACTIVE:     {AgentState.PAUSED, AgentState.ARCHIVED},
-        AgentState.PAUSED:     {AgentState.ACTIVE, AgentState.ARCHIVED},
-        AgentState.ARCHIVED:   set(),
-    }
-
     def can_transition_to(self, target: "AgentState") -> bool:
         """Return *True* if moving from *self* to *target* is a valid transition."""
-        return target in self._TRANSITIONS[self]
+        return target in _STATE_TRANSITIONS[self]
+
+
+# Defined *after* the class so enum members are available.
+_STATE_TRANSITIONS: dict[AgentState, set[AgentState]] = {
+    AgentState.BOOT:       {AgentState.ONBOARDING, AgentState.ARCHIVED},
+    AgentState.ONBOARDING: {AgentState.ACTIVE, AgentState.ARCHIVED},
+    AgentState.ACTIVE:     {AgentState.PAUSED, AgentState.ARCHIVED},
+    AgentState.PAUSED:     {AgentState.ACTIVE, AgentState.ARCHIVED},
+    AgentState.ARCHIVED:   set(),
+}
 
 
 # ---------------------------------------------------------------------------
@@ -292,7 +293,7 @@ class StandaloneAgent(abc.ABC):
         if not self._state.can_transition_to(target):
             raise ValueError(
                 f"Invalid state transition: {self._state.value} → {target.value}. "
-                f"Allowed: {[s.value for s in AgentState._TRANSITIONS[self._state]]}"
+                f"Allowed: {[s.value for s in _STATE_TRANSITIONS[self._state]]}"
             )
         old = self._state
         self._state = target

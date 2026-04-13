@@ -282,8 +282,8 @@ class WorkshopManager:
         if not self.is_git_repo:
             return []
 
-        # Use a null-byte separated format for reliable parsing
-        fmt = "%H%n%h%n%s%n%an%n%aI"
+        # Use null-byte (%x00) as field separator and double-null as record separator
+        fmt = "%H%x00%h%x00%s%x00%an%x00%aI%x00%x00"
         try:
             result = self._git("log", f"--max-count={limit}", f"--format={fmt}")
         except subprocess.CalledProcessError:
@@ -292,12 +292,18 @@ class WorkshopManager:
         raw = result.stdout
         entries: list[dict[str, Any]] = []
 
-        for block in raw.strip().split("\n\n"):
-            lines = block.strip().split("\n")
-            if len(lines) < 5:
+        # Split records on double-null
+        for block in raw.split("\x00\x00"):
+            block = block.strip()
+            if not block:
                 continue
 
-            full_hash, short_hash, subject, author, date = [l.strip() for l in lines[:5]]
+            # Split fields on single-null
+            parts = block.split("\x00")
+            if len(parts) < 5:
+                continue
+
+            full_hash, short_hash, subject, author, date = [p.strip() for p in parts[:5]]
             message = subject
 
             if filter_str and filter_str.lower() not in message.lower():
